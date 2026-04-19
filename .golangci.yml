@@ -1,0 +1,43 @@
+run:
+  timeout: 5m
+  go: "1.23"
+
+linters:
+  enable:
+    - errcheck       # unchecked errors
+    - gosimple       # simplification suggestions
+    - govet          # go vet
+    - ineffassign    # ineffectual assignments
+    - staticcheck    # static analysis
+    - unused         # unused code
+    - gofmt          # formatting
+    - goimports      # import ordering
+    - misspell       # spelling
+    - revive         # opinionated linting
+    - godot          # comment punctuation
+    - exhaustruct    # all struct fields initialised
+    - bodyclose      # HTTP response body closed
+    - contextcheck   # context passed correctly
+    - noctx          # no http.NewRequest without context
+    - rowserrcheck   # sql.Rows.Err() checked
+    - sqlclosecheck  # sql.Rows/Stmt closed
+    - gocritic       # code style
+    - gocognit       # cognitive complexity
+
+linters-settings:
+  gocognit:
+    min-complexity: 20
+  revive:
+    rules:
+      - name: exported
+      - name: var-naming
+      - name: package-comments
+  exhaustruct:
+    exclude:
+      - "github.com/gin-gonic/gin.*"
+      - "go.opentelemetry.io/otel/sdk/trace.*"
+
+issues:
+  exclude-rules:
+    - path: "_test.go"
+      linters: [exhaustruct, godot]
