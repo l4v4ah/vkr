@@ -17,9 +17,11 @@ func newServer(addr string, nc *natsclient.Client, m *metrics.ServiceMetrics, tr
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
-	// Middleware: structured logging + Prometheus instrumentation.
+	// Middleware: structured logging + Prometheus instrumentation + rate limit.
 	r.Use(loggingMiddleware(log))
 	r.Use(metricsMiddleware(m))
+	// 100 req/s per IP, burst 200 — защита от случайных flood-ов
+	r.Use(rateLimitMiddleware(100, 200))
 
 	h := &handler{nc: nc, tracer: tracer, log: log}
 

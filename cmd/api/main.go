@@ -37,7 +37,7 @@ func main() {
 	}
 	defer db.Close()
 
-	srv := newServer(cfg.HTTPAddr, db, m, tracer, log)
+	srv := newServer(cfg.HTTPAddr, db, m, tracer, log, cfg.APIKey)
 
 	go func() {
 		log.Info("api listening", zap.String("addr", cfg.HTTPAddr))

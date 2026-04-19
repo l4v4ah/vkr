@@ -16,16 +16,21 @@ spec:
         app: aggregator
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port:   "9090"
+        prometheus.io/port:   "8082"
         prometheus.io/path:   "/metrics"
     spec:
       containers:
         - name: aggregator
           image: monitoring/aggregator:latest
           imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+              name: health
           env:
             - name: NATS_URL
               value: "nats://nats:4222"
+            - name: HEALTH_ADDR
+              value: ":8082"
             - name: POSTGRES_URL
               valueFrom:
                 secretKeyRef:
@@ -34,10 +39,17 @@ spec:
             - name: LOG_LEVEL
               value: "info"
           readinessProbe:
-            exec:
-              command: ["/bin/sh", "-c", "exit 0"]
-            initialDelaySeconds: 5
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 10
             periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 20
+            periodSeconds: 20
           resources:
             requests:
               cpu: "100m"

@@ -40,6 +40,9 @@ build-aggregator:
 build-api:
 	CGO_ENABLED=0 go build -o bin/api ./cmd/api
 
+build-agent:
+	CGO_ENABLED=0 go build -o bin/agent ./cmd/agent
+
 ## Testing ─────────────────────────────────────────────────────────────────────
 
 test:
@@ -67,13 +70,13 @@ migrate-down:
 ## Docker Compose ──────────────────────────────────────────────────────────────
 
 docker-up:
-	docker compose -f deployments/docker-compose.yml up -d --build
+	docker-compose -f deployments/docker-compose.yml up -d --build
 
 docker-down:
-	docker compose -f deployments/docker-compose.yml down -v
+	docker-compose -f deployments/docker-compose.yml down -v
 
 docker-logs:
-	docker compose -f deployments/docker-compose.yml logs -f
+	docker-compose -f deployments/docker-compose.yml logs -f
 
 ## Kubernetes ──────────────────────────────────────────────────────────────────
 

@@ -34,6 +34,11 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: url
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: api-key
             - name: LOG_LEVEL
               value: "info"
           readinessProbe:

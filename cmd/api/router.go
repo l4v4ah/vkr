@@ -13,7 +13,7 @@ import (
 	"github.com/slava-kov/monitoring-system/internal/storage"
 )
 
-func newServer(addr string, db *storage.DB, m *metrics.ServiceMetrics, tracer trace.Tracer, log *zap.Logger) *http.Server {
+func newServer(addr string, db *storage.DB, m *metrics.ServiceMetrics, tracer trace.Tracer, log *zap.Logger, apiKey string) *http.Server {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
@@ -28,14 +28,42 @@ func newServer(addr string, db *storage.DB, m *metrics.ServiceMetrics, tracer tr
 	h := &apiHandler{db: db, tracer: tracer, log: log}
 
 	v1 := r.Group("/api/v1")
+	if apiKey != "" {
+		v1.Use(apiKeyMiddleware(apiKey))
+	}
 	{
+		v1.GET("/services", h.getServices)
 		v1.GET("/metrics", h.getMetrics)
 		v1.GET("/logs", h.getLogs)
 		v1.GET("/traces/:trace_id", h.getTrace)
 	}
 
+	// SSE endpoints — auth via query param because EventSource can't set headers
+	r.GET("/api/v1/stream", func(c *gin.Context) {
+		h.streamMetrics(c, apiKey)
+	})
+	r.GET("/api/v1/stream/services", func(c *gin.Context) {
+		h.streamServices(c, apiKey)
+	})
+
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
 	r.GET("/metrics", gin.WrapH(m.Handler()))
 
+	// Serve embedded frontend at /
+	r.GET("/", func(c *gin.Context) {
+		data, _ := staticFiles.ReadFile("static/index.html")
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+	})
+
 	return &http.Server{Addr: addr, Handler: r}
+}
+
+func apiKeyMiddleware(key string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetHeader("X-API-Key") != key {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or missing API key"})
+			return
+		}
+		c.Next()
+	}
 }

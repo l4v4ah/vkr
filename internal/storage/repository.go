@@ -41,6 +41,51 @@ type TraceSpan struct {
 	Attributes    map[string]string
 }
 
+// ServiceInfo summarises a monitored server.
+type ServiceInfo struct {
+	ServiceName string
+	Host        string
+	LastSeen    time.Time
+	CPU         float64
+	Mem         float64
+	Disk        float64
+}
+
+// QueryServices returns one row per distinct service_name with latest stats.
+func (db *DB) QueryServices(ctx context.Context) ([]ServiceInfo, error) {
+	rows, err := db.pool.Query(ctx, `
+		WITH latest AS (
+			SELECT DISTINCT ON (service_name, metric_name)
+				service_name, metric_name, value, labels, timestamp
+			FROM metrics
+			ORDER BY service_name, metric_name, timestamp DESC
+		)
+		SELECT
+			service_name,
+			MAX(timestamp)                                           AS last_seen,
+			COALESCE(MAX(labels->>'host'), '')                       AS host,
+			COALESCE(MAX(value) FILTER (WHERE metric_name='cpu_usage_percent'),  0) AS cpu,
+			COALESCE(MAX(value) FILTER (WHERE metric_name='mem_usage_percent'),  0) AS mem,
+			COALESCE(MAX(value) FILTER (WHERE metric_name='disk_usage_percent'), 0) AS disk
+		FROM latest
+		GROUP BY service_name
+		ORDER BY last_seen DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []ServiceInfo
+	for rows.Next() {
+		var s ServiceInfo
+		if err := rows.Scan(&s.ServiceName, &s.LastSeen, &s.Host, &s.CPU, &s.Mem, &s.Disk); err != nil {
+			return nil, err
+		}
+		result = append(result, s)
+	}
+	return result, rows.Err()
+}
+
 // InsertMetric persists a metric data point.
 func (db *DB) InsertMetric(ctx context.Context, m MetricPoint) error {
 	labels, _ := json.Marshal(m.Labels)

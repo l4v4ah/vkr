@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -42,8 +46,44 @@ func main() {
 	}
 	defer nc.Close()
 
+	// readiness flag: becomes 1 once consumers are running
+	var ready atomic.Int32
+
+	healthSrv := startHealthServer(cfg.HealthAddr, &ready, m, log)
+	defer func() {
+		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = healthSrv.Shutdown(shutCtx)
+	}()
+
 	c := newConsumer(db, nc, m, log)
+	ready.Store(1)
+
 	log.Info("aggregator started, consuming telemetry")
 	c.Run(ctx)
 	log.Info("aggregator stopped")
+}
+
+func startHealthServer(addr string, ready *atomic.Int32, m *metrics.ServiceMetrics, log *zap.Logger) *http.Server {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		if ready.Load() == 0 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	})
+
+	mux.Handle("/metrics", m.Handler())
+
+	srv := &http.Server{Addr: addr, Handler: mux}
+	go func() {
+		log.Info("aggregator health listening", zap.String("addr", addr))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("health server error", zap.Error(err))
+		}
+	}()
+	return srv
 }

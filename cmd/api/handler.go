@@ -19,6 +19,17 @@ type apiHandler struct {
 	log    *zap.Logger
 }
 
+// getServices handles GET /api/v1/services — returns all known servers with latest stats.
+func (h *apiHandler) getServices(c *gin.Context) {
+	services, err := h.db.QueryServices(c.Request.Context())
+	if err != nil {
+		h.log.Error("query services", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "query failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": services})
+}
+
 // getMetrics handles GET /api/v1/metrics?service=X&from=RFC3339&to=RFC3339
 func (h *apiHandler) getMetrics(c *gin.Context) {
 	ctx, span := h.tracer.Start(c.Request.Context(), "getMetrics",
