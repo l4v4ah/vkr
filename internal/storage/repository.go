@@ -6,6 +6,37 @@ import (
 	"time"
 )
 
+// Settings key for thresholds.
+const KeyThresholds = "thresholds"
+
+// LoadSettings reads a JSON value from the settings table by key.
+func (db *DB) LoadSettings(ctx context.Context, key string, dst any) error {
+	var raw []byte
+	err := db.pool.QueryRow(ctx,
+		`SELECT value FROM settings WHERE key = $1`, key,
+	).Scan(&raw)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, dst)
+}
+
+// SaveSettings upserts a JSON value into the settings table.
+func (db *DB) SaveSettings(ctx context.Context, key string, src any) error {
+	data, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	_, err = db.pool.Exec(ctx, `
+		INSERT INTO settings (key, value, updated_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (key) DO UPDATE
+		  SET value = EXCLUDED.value, updated_at = NOW()`,
+		key, data,
+	)
+	return err
+}
+
 // MetricPoint is the domain object written by the aggregator and read by the API.
 type MetricPoint struct {
 	ID          int64

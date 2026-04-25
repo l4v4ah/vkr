@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -27,7 +28,7 @@ type systemCollector struct {
 	alert       *alerter
 	sessionID   string // trace ID for this agent run — groups all heartbeat spans
 	thresh      *thresholds
-	failCount   int // consecutive sendBatch failures; triggers error log at 3
+	failCount   atomic.Int32 // consecutive sendBatch failures; triggers error log at 3
 
 	statusMu       sync.Mutex
 	intervalStatus string // worst status seen since last heartbeat span
@@ -300,27 +301,27 @@ func (s *systemCollector) pt(name string, value float64, labels map[string]strin
 
 func (s *systemCollector) send(ctx context.Context, batch metricBatch) {
 	if err := s.client.sendBatchTraced(ctx, batch, s.sessionID, newID()); err != nil {
-		s.failCount++
+		fc := s.failCount.Add(1)
 		s.log.Warn("send batch", zap.String("metric", batch[0].MetricName), zap.Error(err))
 		level := "warn"
 		msg := "failed to send metric batch: " + err.Error()
-		if s.failCount == 3 {
+		if fc == 3 {
 			level = "error"
 			msg = "collector unreachable, metric loss in progress"
-		} else if s.failCount > 3 {
+		} else if fc > 3 {
 			return // already logged the error, don't spam
 		}
 		s.sendLog(ctx, level, msg, s.sessionID, map[string]string{
 			"metric":     batch[0].MetricName,
 			"host":       hostname(),
-			"fail_count": fmt.Sprintf("%d", s.failCount),
+			"fail_count": fmt.Sprintf("%d", fc),
 		})
-	} else if s.failCount >= 3 {
-		s.sendLog(ctx, "info", fmt.Sprintf("connectivity restored after %d failures", s.failCount),
+	} else if fc := s.failCount.Load(); fc >= 3 {
+		s.sendLog(ctx, "info", fmt.Sprintf("connectivity restored after %d failures", fc),
 			s.sessionID, map[string]string{"host": hostname()})
-		s.failCount = 0
+		s.failCount.Store(0)
 	} else {
-		s.failCount = 0
+		s.failCount.Store(0)
 	}
 }
 

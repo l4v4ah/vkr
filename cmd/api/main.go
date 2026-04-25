@@ -37,7 +37,7 @@ func main() {
 	}
 	defer db.Close()
 
-	thresh := newThresholdStore()
+	thresh := newThresholdStore(db, log)
 	srv := newServer(cfg.HTTPAddr, db, m, tracer, log, cfg.APIKey, thresh)
 
 	go func() {

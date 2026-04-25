@@ -38,10 +38,13 @@ func pollConfig(ctx context.Context, apiURL string, t *thresholds) {
 			return
 		}
 		resp, err := http.DefaultClient.Do(req)
-		if err != nil || resp.StatusCode != http.StatusOK {
+		if err != nil {
 			return
 		}
 		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return
+		}
 		var cfg struct {
 			CPUWarn  float64 `json:"cpu_warn"`
 			MemWarn  float64 `json:"mem_warn"`

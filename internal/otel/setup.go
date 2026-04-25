@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -14,11 +15,11 @@ import (
 )
 
 // Setup initialises a TracerProvider and installs it as the global OTel provider.
-// It returns a shutdown function that must be called on service exit.
+// Returns a shutdown function that must be called on service exit.
 //
-// In production the OTEL_EXPORTER_OTLP_ENDPOINT environment variable selects an
-// OTLP/gRPC endpoint (e.g. an OpenTelemetry Collector side-car). When the variable
-// is absent the provider falls back to a stdout exporter for local development.
+// If OTEL_EXPORTER_OTLP_ENDPOINT is set, spans are exported via OTLP/HTTP
+// (e.g. to a Jaeger or OpenTelemetry Collector sidecar).
+// Otherwise falls back to stdout for local development.
 func Setup(ctx context.Context, service, version string) (trace.Tracer, func(context.Context) error, error) {
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
@@ -54,10 +55,10 @@ func Setup(ctx context.Context, service, version string) (trace.Tracer, func(con
 
 func buildExporter(ctx context.Context) (sdktrace.SpanExporter, error) {
 	if endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); endpoint != "" {
-		// When an OTLP endpoint is configured use it (requires OTLP gRPC exporter).
-		// The import is handled at the call site to keep this file compilable without
-		// the optional OTLP dependency in local dev mode.
-		_ = endpoint
+		return otlptracehttp.New(ctx,
+			otlptracehttp.WithEndpoint(endpoint),
+			otlptracehttp.WithInsecure(),
+		)
 	}
 	return stdouttrace.New(stdouttrace.WithPrettyPrint())
 }

@@ -9,5 +9,5 @@ FROM alpine:3.20
 RUN apk --no-cache add ca-certificates tzdata
 COPY --from=builder /bin/aggregator /aggregator
 COPY migrations/ /migrations/
-EXPOSE 9090
+EXPOSE 8082
 ENTRYPOINT ["/aggregator"]

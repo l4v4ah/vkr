@@ -28,8 +28,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName   # имя ноды как service_name
-            - name: COLLECT_INTERVAL
-              value: "15s"
             - name: LOG_LEVEL
               value: "info"
           resources:

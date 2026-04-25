@@ -29,8 +29,14 @@ type grpcServer struct {
 func (s *grpcServer) SendMetrics(ctx context.Context, req *pb.SendMetricsRequest) (*pb.SendMetricsResponse, error) {
 	// Extract distributed trace context from gRPC metadata.
 	traceID, parentSpanID := extractTraceMeta(ctx)
-	collectorSpanID := ""
 	start := time.Now()
+
+	// Generate collectorSpanID before publishing so every metric message
+	// carries the correct parent reference for the aggregator span.
+	collectorSpanID := ""
+	if traceID != "" && len(req.Metrics) > 0 {
+		collectorSpanID = newSpanID()
+	}
 
 	for _, m := range req.Metrics {
 		msg := metricRequest{
@@ -40,7 +46,7 @@ func (s *grpcServer) SendMetrics(ctx context.Context, req *pb.SendMetricsRequest
 			Labels:          m.Labels,
 			Timestamp:       protoTime(m.Timestamp),
 			TraceID:         traceID,
-			CollectorSpanID: collectorSpanID, // filled below after span ID is chosen
+			CollectorSpanID: collectorSpanID,
 		}
 		if err := s.nc.Publish(ctx, "telemetry.metrics", msg); err != nil {
 			s.log.Error("grpc publish metric", zap.Error(err))
@@ -50,7 +56,6 @@ func (s *grpcServer) SendMetrics(ctx context.Context, req *pb.SendMetricsRequest
 
 	// Write collector span once per batch (only when trace context is present).
 	if traceID != "" && len(req.Metrics) > 0 {
-		collectorSpanID = newSpanID()
 		span := spanRequest{
 			TraceID:       traceID,
 			SpanID:        collectorSpanID,

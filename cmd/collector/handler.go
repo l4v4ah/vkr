@@ -101,7 +101,7 @@ func (h *handler) receiveLogs(c *gin.Context) {
 }
 
 func (h *handler) receiveSpans(c *gin.Context) {
-	_, span := h.tracer.Start(context.Background(), "receiveSpans")
+	_, span := h.tracer.Start(c.Request.Context(), "receiveSpans")
 	defer span.End()
 
 	var req spanRequest
