@@ -13,7 +13,7 @@ import (
 	"github.com/slava-kov/monitoring-system/internal/storage"
 )
 
-func newServer(addr string, db *storage.DB, m *metrics.ServiceMetrics, tracer trace.Tracer, log *zap.Logger, apiKey string) *http.Server {
+func newServer(addr string, db *storage.DB, m *metrics.ServiceMetrics, tracer trace.Tracer, log *zap.Logger, apiKey string, thresh *thresholdStore) *http.Server {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
@@ -27,6 +27,9 @@ func newServer(addr string, db *storage.DB, m *metrics.ServiceMetrics, tracer tr
 
 	h := &apiHandler{db: db, tracer: tracer, log: log}
 
+	// Config endpoints: GET is public (agents poll without auth), PUT is protected.
+	r.GET("/api/v1/config/thresholds", thresh.handleGet)
+
 	v1 := r.Group("/api/v1")
 	if apiKey != "" {
 		v1.Use(apiKeyMiddleware(apiKey))
@@ -36,6 +39,7 @@ func newServer(addr string, db *storage.DB, m *metrics.ServiceMetrics, tracer tr
 		v1.GET("/metrics", h.getMetrics)
 		v1.GET("/logs", h.getLogs)
 		v1.GET("/traces/:trace_id", h.getTrace)
+		v1.PUT("/config/thresholds", thresh.handleSet)
 	}
 
 	// SSE endpoints — auth via query param because EventSource can't set headers

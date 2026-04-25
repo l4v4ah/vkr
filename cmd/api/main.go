@@ -37,7 +37,8 @@ func main() {
 	}
 	defer db.Close()
 
-	srv := newServer(cfg.HTTPAddr, db, m, tracer, log, cfg.APIKey)
+	thresh := newThresholdStore()
+	srv := newServer(cfg.HTTPAddr, db, m, tracer, log, cfg.APIKey, thresh)
 
 	go func() {
 		log.Info("api listening", zap.String("addr", cfg.HTTPAddr))

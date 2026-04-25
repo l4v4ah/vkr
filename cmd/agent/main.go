@@ -24,12 +24,19 @@ func main() {
 		log.Fatal("grpc connect", zap.Error(err))
 	}
 
+	thresh := newThresholds()
+	go pollConfig(ctx, cfg.APIURL, thresh)
+
+	alert := newAlerter(cfg.TelegramToken, cfg.TelegramChatID, log)
+
 	log.Info("agent started",
 		zap.String("collector_grpc", cfg.CollectorGRPC),
 		zap.String("service_name", cfg.ServiceName),
+		zap.String("api_url", cfg.APIURL),
+		zap.Bool("telegram_alerts", alert.enabled()),
 		zap.String("mode", "continuous"),
 	)
 
-	newSystemCollector(cfg.ServiceName, client, log).Run(ctx)
+	newSystemCollector(cfg.ServiceName, client, log, thresh, alert).Run(ctx)
 	log.Info("agent stopped")
 }

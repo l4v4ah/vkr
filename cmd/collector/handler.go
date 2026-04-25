@@ -25,11 +25,13 @@ type handler struct {
 
 // metricRequest is the JSON body for POST /api/v1/metrics.
 type metricRequest struct {
-	ServiceName string            `json:"service_name" binding:"required"`
-	MetricName  string            `json:"metric_name"  binding:"required"`
-	Value       float64           `json:"value"`
-	Labels      map[string]string `json:"labels"`
-	Timestamp   time.Time         `json:"timestamp"`
+	ServiceName      string            `json:"service_name" binding:"required"`
+	MetricName       string            `json:"metric_name"  binding:"required"`
+	Value            float64           `json:"value"`
+	Labels           map[string]string `json:"labels"`
+	Timestamp        time.Time         `json:"timestamp"`
+	TraceID          string            `json:"trace_id,omitempty"`
+	CollectorSpanID  string            `json:"collector_span_id,omitempty"`
 }
 
 // logRequest is the JSON body for POST /api/v1/logs.

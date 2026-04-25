@@ -49,14 +49,20 @@ func LoadAPI() API {
 
 // Agent holds configuration for the system metrics agent.
 type Agent struct {
-	CollectorGRPC string
-	ServiceName   string
+	CollectorGRPC  string
+	ServiceName    string
+	APIURL         string // optional: poll threshold config from the API service
+	TelegramToken  string // optional: Telegram bot token for alerts
+	TelegramChatID string // optional: Telegram chat ID for alerts
 }
 
 func LoadAgent() Agent {
 	return Agent{
-		CollectorGRPC: env("COLLECTOR_GRPC", "localhost:9090"),
-		ServiceName:   env("SERVICE_NAME", "host-agent"),
+		CollectorGRPC:  env("COLLECTOR_GRPC", "localhost:9090"),
+		ServiceName:    env("SERVICE_NAME", "host-agent"),
+		APIURL:         env("API_URL", ""),
+		TelegramToken:  env("TELEGRAM_TOKEN", ""),
+		TelegramChatID: env("TELEGRAM_CHAT_ID", ""),
 	}
 }
 

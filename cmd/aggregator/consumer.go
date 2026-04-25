@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -12,6 +14,12 @@ import (
 	natsclient "github.com/slava-kov/monitoring-system/internal/nats"
 	"github.com/slava-kov/monitoring-system/internal/storage"
 )
+
+func newAggSpanID() string {
+	b := make([]byte, 8)
+	_, _ = cryptorand.Read(b)
+	return fmt.Sprintf("%x", b)
+}
 
 // consumer subscribes to all NATS JetStream telemetry subjects and writes
 // decoded records to PostgreSQL. Each signal type runs in its own goroutine
@@ -40,11 +48,13 @@ func (c *consumer) Run(ctx context.Context) {
 
 // metricMsg mirrors the JSON published by the collector.
 type metricMsg struct {
-	ServiceName string            `json:"service_name"`
-	MetricName  string            `json:"metric_name"`
-	Value       float64           `json:"value"`
-	Labels      map[string]string `json:"labels"`
-	Timestamp   time.Time         `json:"timestamp"`
+	ServiceName     string            `json:"service_name"`
+	MetricName      string            `json:"metric_name"`
+	Value           float64           `json:"value"`
+	Labels          map[string]string `json:"labels"`
+	Timestamp       time.Time         `json:"timestamp"`
+	TraceID         string            `json:"trace_id,omitempty"`
+	CollectorSpanID string            `json:"collector_span_id,omitempty"`
 }
 
 type logMsg struct {
@@ -75,6 +85,7 @@ func (c *consumer) consumeMetrics(ctx context.Context) {
 			c.m.ErrorsTotal.WithLabelValues("decode_metric").Inc()
 			return nil // bad message: ack and skip
 		}
+		insertStart := time.Now().UTC()
 		err := c.db.InsertMetric(ctx, storage.MetricPoint{
 			ServiceName: msg.ServiceName,
 			MetricName:  msg.MetricName,
@@ -88,6 +99,22 @@ func (c *consumer) consumeMetrics(ctx context.Context) {
 			return err // nack → retry
 		}
 		c.m.RequestsTotal.WithLabelValues("nats", "metrics", "200").Inc()
+		if msg.TraceID != "" {
+			_ = c.db.InsertSpan(ctx, storage.TraceSpan{
+				TraceID:       msg.TraceID,
+				SpanID:        newAggSpanID(),
+				ParentSpanID:  msg.CollectorSpanID,
+				ServiceName:   "aggregator",
+				OperationName: "aggregator.insert_metric",
+				StartTime:     insertStart,
+				EndTime:       time.Now().UTC(),
+				Status:        "ok",
+				Attributes: map[string]string{
+					"metric_name":  msg.MetricName,
+					"service_name": msg.ServiceName,
+				},
+			})
+		}
 		return nil
 	}); err != nil && ctx.Err() == nil {
 		c.log.Error("metrics consumer exited", zap.Error(err))

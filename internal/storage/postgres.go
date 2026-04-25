@@ -48,3 +48,6 @@ func runMigrations(dsn, path string) error {
 
 // Close releases all pool connections.
 func (db *DB) Close() { db.pool.Close() }
+
+// Pool exposes the underlying pgxpool for advanced queries in tests.
+func (db *DB) Pool() *pgxpool.Pool { return db.pool }

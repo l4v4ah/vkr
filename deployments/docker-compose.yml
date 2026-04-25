@@ -1,5 +1,3 @@
-version: "3.9"
-
 # Local development environment for the monitoring system.
 # Start everything with: docker compose up -d
 # Tear down:            docker compose down -v
@@ -97,9 +95,12 @@ services:
       dockerfile: Dockerfile.agent
     restart: unless-stopped
     environment:
-      COLLECTOR_GRPC: "collector:9090"
-      SERVICE_NAME:   "host-agent"
-      LOG_LEVEL:      "info"
+      COLLECTOR_GRPC:   "collector:9090"
+      SERVICE_NAME:     "host-agent"
+      API_URL:          "http://api:8081"
+      LOG_LEVEL:        "info"
+      TELEGRAM_TOKEN:   "6776924214:AAFU1_QZpmSTAgaGJnhRfWQC8fc1-dkgrBg"   # вставь токен бота
+      TELEGRAM_CHAT_ID: "1078096008"   # вставь chat_id
     depends_on:
       collector:
         condition: service_healthy

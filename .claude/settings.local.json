@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(docker exec deployments-postgres-1 *)",
-      "Bash(curl -s \"http://localhost:8081/api/v1/metrics?service=host-agent\")"
+      "Bash(curl -s \"http://localhost:8081/api/v1/metrics?service=host-agent\")",
+      "Bash(go build *)",
+      "Bash(go test *)",
+      "Bash(pip3 install *)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -m ensurepip)",
+      "Bash(python3 -m pip install python-docx -q)",
+      "Bash(apt-get install *)",
+      "Bash(sudo apt-get *)"
     ]
   }
 }
